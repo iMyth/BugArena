@@ -1,0 +1,63 @@
+# Unity generated data and local editor state
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/[Cc]rashReports/
+
+# Build outputs (keep Assets/**/Build* source folders)
+/[Bb]uild/
+/[Bb]uilds/
+*.apk
+*.aab
+*.unitypackage
+
+# IDE generated files and local caches
+/.vs/
+/.idea/
+/.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity tooling and generated content
+/Assets/AssetStoreTools*
+/Assets/Plugins/Editor/JetBrains*
+/Assets/AddressableAssetsData/*/*.bin*
+/Assets/AddressableAssetsData/*/*.hash*
+/Assets/StreamingAssets/aa.meta
+/Assets/StreamingAssets/aa/
+/sysinfo.txt
+/crashlytics-build.properties
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Desktop.ini
+
+# Local secrets
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks

@@ -45,6 +45,15 @@ public static class TouchChecks
             touch(4, ArenaTouchInput.PrimaryAction.center, UnityEngine.InputSystem.TouchPhase.Began);
             check(controls.PressedPoint.HasValue && ArenaTouchInput.PrimaryAction.Contains(controls.PressedPoint.Value), "Menu tap mapping");
             controls.Sample(false); check(!controls.Held && controls.Move == 0 && !controls.PressedPoint.HasValue, "Focus cleanup");
+            touch(5, ArenaTouchInput.Super.center, UnityEngine.InputSystem.TouchPhase.Began);
+            check(controls.SuperHeld && !controls.Held, "Separate super control");
+            combat.Reset();
+            for (int i = 0; i < 160; i++) combat.Advance(1f / 120, new FightInput(0, controls.Held, controls.SuperHeld));
+            touch(5, ArenaTouchInput.Super.center, UnityEngine.InputSystem.TouchPhase.Ended);
+            combat.Advance(1f / 120, new FightInput(0, controls.Held, controls.SuperHeld));
+            check(combat.Orb != null && !controls.SuperHeld, "Touch full charge release fires super");
+            touch(6, ArenaTouchInput.Super.center, UnityEngine.InputSystem.TouchPhase.Began);
+            controls.Sample(false); check(!controls.SuperHeld, "Focus clears super touch");
             Directory.CreateDirectory("Library/BugArena");
             File.WriteAllText("Library/BugArena/touch-checks.txt", "PASS: " + passed + " synthetic touchscreen checks");
             Debug.Log("[BugArena] PASS: " + passed + " synthetic touchscreen checks");

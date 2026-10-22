@@ -9,6 +9,8 @@ namespace BugArena
     {
         public static readonly Rect Left = new Rect(56, 725, 130, 120);
         public static readonly Rect Right = new Rect(202, 725, 130, 120);
+        public static readonly Rect Super = new Rect(890, 710, 200, 140);
+        public static Rect UpgradeCard(int index) => new Rect(180 + index * 370, 360, 340, 230);
         public static readonly Rect Charge = new Rect(1110, 710, 274, 140);
         public static Rect Viewport
         {
@@ -26,6 +28,7 @@ namespace BugArena
         public bool PreviewControls;
         public bool Visible => PreviewControls || Application.isMobilePlatform || (Touchscreen.current != null);
         public float Move { get; private set; }
+        public bool SuperHeld { get; private set; }
         public bool Held { get; private set; }
         public bool LeftHeld { get; private set; }
         public bool RightHeld { get; private set; }
@@ -39,7 +42,7 @@ namespace BugArena
                 var previewViewport = Viewport;
                 var previewScreen = Mouse.current.position.ReadValue();
                 var previewPoint = (new Vector2(previewScreen.x, Screen.height - previewScreen.y) - previewViewport.position) / (previewViewport.width / 1440);
-                LeftHeld = Left.Contains(previewPoint); RightHeld = Right.Contains(previewPoint); Held = Charge.Contains(previewPoint);
+                LeftHeld = Left.Contains(previewPoint); RightHeld = Right.Contains(previewPoint); Held = Charge.Contains(previewPoint); SuperHeld = Super.Contains(previewPoint);
                 if (Mouse.current.leftButton.wasPressedThisFrame) PressedPoint = previewPoint;
             }
             if (Touchscreen.current == null)
@@ -51,11 +54,11 @@ namespace BugArena
                 var screen = touch.position.ReadValue();
                 var point = (new Vector2(screen.x, Screen.height - screen.y) - viewport.position) / scale;
                 if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began) PressedPoint = point;
-                LeftHeld |= Left.Contains(point); RightHeld |= Right.Contains(point); Held |= Charge.Contains(point);
+                LeftHeld |= Left.Contains(point); RightHeld |= Right.Contains(point); Held |= Charge.Contains(point); SuperHeld |= Super.Contains(point);
             }
             Move = (RightHeld ? 1 : 0) - (LeftHeld ? 1 : 0);
         }
-        public void Clear() { PressedPoint = null; Move = 0; Held = LeftHeld = RightHeld = false; }
+        public void Clear() { PressedPoint = null; Move = 0; SuperHeld = Held = LeftHeld = RightHeld = false; }
         void OnDisable() { Clear(); }
     }
 }

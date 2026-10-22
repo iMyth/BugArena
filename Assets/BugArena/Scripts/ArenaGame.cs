@@ -8,6 +8,10 @@ namespace BugArena
     public sealed class ArenaGame : MonoBehaviour
     {
         public ArenaCombat Combat { get; private set; }
+        public readonly List<UpgradeKind> Upgrades = new List<UpgradeKind>();
+        public ArenaUpgrade[] Offers { get; private set; }
+        public bool ChoosingUpgrade => Offers != null;
+        readonly System.Random upgradeRandom = new System.Random();
         public bool Paused { get; private set; }
         public string Announcement { get; private set; } = "FIND YOUR DISTANCE";
         public string AnnouncementDetail { get; private set; } = "Release SPACE when the gold zone meets your rival";
@@ -26,12 +30,14 @@ namespace BugArena
         public ArenaStage Stage => ArenaCampaign.Stages[StageIndex];
         public bool TimedOut { get; private set; }
         public bool RoundFinished => Combat.Finished || TimedOut;
-        public bool Won => Combat.Player.Health / Combat.Player.MaxHealth > Combat.Enemy.Health / Combat.Enemy.MaxHealth;
+        public bool Won => Stage.IsBoss
+            ? Combat.Enemy.Health <= 0 && Combat.Player.Health > 0
+            : Combat.Player.Health / Combat.Player.MaxHealth > Combat.Enemy.Health / Combat.Enemy.MaxHealth;
         public bool CampaignComplete => RoundFinished && Won && StageIndex == ArenaCampaign.Stages.Length - 1;
-        public float TimeRemaining => Mathf.Max(0, 75 - RoundTime);
+        public float TimeRemaining => Mathf.Max(0, Stage.TimeLimit - RoundTime);
         public float Countdown { get; private set; } = 2;
         float accumulator, hitStop, shake;
-        bool counted;
+        bool counted, bossAnnounced;
         Vector3 cameraHome;
         AudioSource audioSource;
         AudioClip hitClip, launchClip, clashClip;
@@ -63,7 +69,7 @@ namespace BugArena
             hitClip = Tone("Shell impact", 110, .12f);
             launchClip = Tone("Horn launcher", 320, .23f);
             clashClip = Tone("Shell clash", 620, .16f);
-            Combat.Hit += OnHit;
+            Combat.Hit += OnHit; Combat.OrbChanged += OnOrb;
         }
         AudioClip Tone(string name, float hz, float duration)
         {
@@ -82,17 +88,25 @@ namespace BugArena
             if (Touch.PressedPoint.HasValue)
             {
                 var point = Touch.PressedPoint.Value;
-                if ((Paused || RoundFinished) && ArenaTouchInput.PrimaryAction.Contains(point))
+                if (ChoosingUpgrade)
+                { for (int i = 0; i < 3; i++) if (ArenaTouchInput.UpgradeCard(i).Contains(point)) { ChooseUpgrade(i); break; } }
+                else if ((Paused || RoundFinished) && ArenaTouchInput.PrimaryAction.Contains(point))
                 { if (RoundFinished) Continue(); else TogglePause(); }
                 else if (!RoundFinished && ArenaTouchInput.PauseAction.Contains(point)) TogglePause();
                 else if (Paused && RoundTime == 0)
                     for (int i = 0; i < ArenaCampaign.Stages.Length; i++)
-                        if (new Rect(440 + i * 190, 625, 180, 43).Contains(point)) SelectStage(i);
+                        if (new Rect(245 + i * 190, 625, 180, 43).Contains(point)) SelectStage(i);
             }
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.rKey.wasPressedThisFrame) Restart();
+                if (keyboard.rKey.wasPressedThisFrame) RestartRun();
+                if (ChoosingUpgrade)
+                {
+                    if (keyboard.digit1Key.wasPressedThisFrame) ChooseUpgrade(0);
+                    else if (keyboard.digit2Key.wasPressedThisFrame) ChooseUpgrade(1);
+                    else if (keyboard.digit3Key.wasPressedThisFrame) ChooseUpgrade(2);
+                }
                 if (RoundFinished && keyboard.enterKey.wasPressedThisFrame) Continue();
                 if (keyboard.escapeKey.wasPressedThisFrame || (Paused && keyboard.enterKey.wasPressedThisFrame)) TogglePause();
             }
@@ -109,35 +123,54 @@ namespace BugArena
                 else
                 {
                     RoundTime += realDt;
-                    if (RoundTime >= 75) { TimedOut = true; accumulator = 0; }
+                    if (RoundTime >= Stage.TimeLimit) { TimedOut = true; accumulator = 0; }
                     else if (hitStop > 0) hitStop -= realDt;
                     else
                     {
-                        float move = Touch.Move; bool held = Touch.Held;
+                        float move = Touch.Move; bool held = Touch.Held, super = Touch.SuperHeld;
                         if (keyboard != null && Application.isFocused)
                         {
                             move += (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0);
-                            held |= keyboard.spaceKey.isPressed;
+                            held |= keyboard.spaceKey.isPressed; super |= keyboard.qKey.isPressed;
                         }
                         accumulator = Mathf.Min(accumulator + realDt, .1f);
                         while (accumulator >= 1f / 120)
                         {
-                            Combat.Advance(1f / 120, new FightInput(Mathf.Clamp(move, -1, 1), held)); accumulator -= 1f / 120;
+                            Combat.Advance(1f / 120, new FightInput(Mathf.Clamp(move, -1, 1), held, super)); accumulator -= 1f / 120;
                             if (hitStop > 0 || Combat.Finished) { accumulator = 0; break; }
                         }
                     }
                 }
             }
             RecordResult();
+            if (Combat.Enemy.Enraged && !bossAnnounced)
+            {
+                bossAnnounced = true; Announcement = "ONYX ENRAGED";
+                AnnouncementDetail = "FASTER SUPER / STILL VULNERABLE DURING RECOVERY"; AnnouncementLife = 2;
+                Visuals.Burst(new Vector3(Combat.Enemy.X, 1, 0), ArenaVisuals.Coral, 24);
+            }
+            ArenaCamera.orthographicSize = Mathf.Max(6.6f, 14.5f / Mathf.Max(.7f, ArenaCamera.aspect));
             shake = Mathf.MoveTowards(shake, 0, realDt * 2);
             ArenaCamera.transform.position = cameraHome + new Vector3(Mathf.Sin(Time.unscaledTime * 81), Mathf.Cos(Time.unscaledTime * 67), 0) * shake * .14f;
             Visuals.Update(Combat, Paused || RoundFinished || Countdown > 0 ? 0 : realDt, Time.unscaledTime);
         }
+        void OnOrb(OrbEvent e)
+        {
+            Announcement = e.Reflected ? "RETURN!  " + e.Damage + " DAMAGE" : "SUPER ORB!";
+            AnnouncementDetail = e.Reflected ? "DOUBLE DAMAGE / ONLY A DASH END-ZONE CAN RETURN IT" : "Watch the ball. Charge a dash to meet it at the end.";
+            AnnouncementLife = 1.8f; shake = e.Reflected ? .8f : .35f;
+            Visuals.Burst(new Vector3(e.Position.x, e.Position.y, 0), e.Reflected ? ArenaVisuals.Gold : ArenaVisuals.Teal, e.Reflected ? 28 : 16);
+            audioSource.pitch = e.Reflected ? 1.3f : .8f;
+            audioSource.PlayOneShot(launchClip, .8f);
+        }
         void OnHit(Impact impact)
         {
+            audioSource.pitch = 1;
             shake = impact.Finisher ? 1 : .4f; hitStop = impact.Finisher ? .095f : .045f;
             ImpactFlash = impact.Finisher ? .75f : .3f; LastDamage = impact.Damage; LastWasPlayer = impact.Attacker == Combat.Player;
-            if (impact.Clash) { Announcement = "SHELL CLASH"; AnnouncementDetail = "Both attacks deflected. Reset your spacing."; }
+            if (impact.Orb) { Announcement = impact.Target.Health <= 0 ? "ORB FINISH!" : "ORB IMPACT"; AnnouncementDetail = impact.DamageText + " DAMAGE / MISSED THE DASH END-ZONE"; }
+            else if (impact.Blocked) { Announcement = "WARD BROKEN"; AnnouncementDetail = "First dash hit absorbed"; }
+            else if (impact.Clash) { Announcement = "SHELL CLASH"; AnnouncementDetail = "Both attacks deflected. Reset your spacing."; }
             else if (impact.Finisher) { Announcement = LastWasPlayer ? "HORN LAUNCH!" : "CAUGHT AT THE EDGE"; AnnouncementDetail = "END-ZONE HIT  /  BONUS DAMAGE + LAUNCH"; }
             else if (impact.Counter) { Announcement = "CHARGE BREAK"; AnnouncementDetail = "Caught while charging  /  +4 damage"; }
             else { Announcement = LastWasPlayer ? "SHELL HIT" : "RIVAL HIT"; AnnouncementDetail = "Land the gold end-zone for a launcher"; }
@@ -150,9 +183,9 @@ namespace BugArena
         public void TogglePause() { if (!RoundFinished) { Paused = !Paused; accumulator = 0; } }
         public void Restart()
         {
-            Combat.Configure(Stage); Visuals.SetStage(Stage);
+            Combat.Configure(Stage); Combat.Player.DashDamageMultiplier = 1 + StageIndex * .25f; ArenaUpgrade.Apply(Combat.Player, Upgrades); Visuals.SetStage(Stage);
             Touch.Clear(); TimedOut = false; Countdown = 2;
-            Paused = false; accumulator = hitStop = 0; counted = false; RoundTime = 0;
+            Paused = false; accumulator = hitStop = 0; counted = bossAnnounced = false; RoundTime = 0;
             Announcement = Stage.Name; AnnouncementDetail = Stage.Hint; AnnouncementLife = 2.5f;
         }
         void RecordResult()
@@ -171,17 +204,24 @@ namespace BugArena
         {
             if (!RoundFinished) return;
             RecordResult();
-            if (Won) StageIndex = (StageIndex + 1) % ArenaCampaign.Stages.Length;
-            Restart();
+            if (ChoosingUpgrade) return;
+            if (Won && !CampaignComplete) { Offers = ArenaUpgrade.Offer(Upgrades, upgradeRandom); Touch.Clear(); return; }
+            RestartRun();
         }
+        public void ChooseUpgrade(int index)
+        {
+            if (!ChoosingUpgrade || index < 0 || index >= Offers.Length) return;
+            Upgrades.Add(Offers[index].Kind); Offers = null; StageIndex++; Restart();
+        }
+        public void RestartRun() { Offers = null; Upgrades.Clear(); StageIndex = 0; Restart(); }
         public void SelectStage(int index)
         {
             if (index < 0 || index > UnlockedStage || index >= ArenaCampaign.Stages.Length) return;
-            StageIndex = index; Restart(); Paused = true;
+            Offers = null; Upgrades.Clear(); StageIndex = index; Restart(); Paused = true;
         }
         void OnDestroy()
         {
-            if (Combat != null) Combat.Hit -= OnHit;
+            if (Combat != null) { Combat.Hit -= OnHit; Combat.OrbChanged -= OnOrb; }
             Visuals?.Dispose(); Visuals = null;
             foreach (var clip in clips) if (clip != null) { if (Application.isPlaying) Destroy(clip); else DestroyImmediate(clip); }
             clips.Clear();

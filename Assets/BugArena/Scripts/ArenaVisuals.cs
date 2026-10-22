@@ -25,6 +25,10 @@ namespace BugArena
         Transform previewRoot, previewLine, previewZone, previewTip;
         Material previewMaterial;
         float clock;
+        Transform orbView, orbCore;
+        readonly List<Transform> orbRings = new List<Transform>();
+        readonly List<Transform> orbTrail = new List<Transform>();
+        Material orbMaterial, orbHaloMaterial;
         struct Spark { public Transform Transform; public Vector3 Velocity; public float Life, MaxLife; }
         sealed class BugView
         {
@@ -204,7 +208,7 @@ namespace BugArena
             RenderSettings.fog = true; RenderSettings.fogColor = new Color(.035f, .085f, .12f);
             RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogDensity = .018f;
             var cameraGo = Group("Arena Camera"); var camera = cameraGo.gameObject.AddComponent<Camera>();
-            cameraGo.tag = "MainCamera"; camera.orthographic = true; camera.orthographicSize = 6.6f;
+            cameraGo.tag = "MainCamera"; camera.orthographic = true; camera.orthographicSize = 8.8f;
             camera.transform.position = new Vector3(0, 5.8f, -22);
             camera.transform.rotation = Quaternion.LookRotation(new Vector3(0, 1.4f, 0) - camera.transform.position);
             camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.025f, .055f, .08f);
@@ -229,6 +233,7 @@ namespace BugArena
             Ring("Centre mark", .7f, .48f, .022f, new Color(.62f, .53f, .35f), arena).localPosition = new Vector3(0, .028f, 0);
             for (int i = -8; i <= 8; i++)
                 Shape("Range tick", PrimitiveType.Cube, new Vector3(i, .035f, -1.8f), new Vector3(.025f, .015f, i % 2 == 0 ? .25f : .12f), new Color(.67f, .58f, .39f), arena);
+            arena.localScale = new Vector3(1.45f, 1, 1);
             // Seeded environment generation avoids affecting combat randomness.
             var scenery = Group("Batched forest scenery");
             var random = new System.Random(48);
@@ -243,7 +248,7 @@ namespace BugArena
             for (int i = 0; i < 12; i++)
             {
                 float side = i % 2 == 0 ? -1 : 1;
-                float x = side * (8.8f + (float)random.NextDouble() * 3), z = .5f + (float)random.NextDouble() * 6;
+                float x = side * (14f + (float)random.NextDouble() * 3), z = .5f + (float)random.NextDouble() * 6;
                 float h = .6f + (float)random.NextDouble() * 1.9f;
                 var mushroom = Group("Lantern mushroom", scenery);
                 Shape("Ivory stem", PrimitiveType.Cylinder, new Vector3(x, h / 2, z), new Vector3(.17f, h / 2, .17f), new Color(.58f, .67f, .48f), mushroom, true);
@@ -266,6 +271,14 @@ namespace BugArena
             previewTip = Ring("Dash endpoint", .18f, .18f, .035f, Gold, previewRoot);
             previewMaterial = new Material(Mat(Gold)); previewZone.GetComponent<Renderer>().sharedMaterial = previewMaterial;
             previewRoot.gameObject.SetActive(false);
+            orbView = Group("Super energy orb");
+            var orbColor = new Color(.3f, .92f, 1);
+            orbCore = Shape("Energy core", PrimitiveType.Sphere, Vector3.zero, Vector3.one * .65f, orbColor, orbView);
+            orbMaterial = Mat(orbColor); orbMaterial.EnableKeyword("_EMISSION");
+            var haloColor = new Color(.31f, .93f, 1); orbHaloMaterial = Mat(haloColor);
+            for (int i = 0; i < 4; i++) orbRings.Add(Ring("Energy orbit", .5f + i * .14f, .5f + i * .14f, .025f, haloColor, orbView));
+            for (int i = 0; i < 8; i++) orbTrail.Add(Shape("Energy trail", PrimitiveType.Sphere, Vector3.zero, Vector3.one * .15f, haloColor, orbView));
+            orbView.gameObject.SetActive(false);
             return camera;
         }
         public void BuildFighters()
@@ -365,6 +378,36 @@ namespace BugArena
         public void Update(ArenaCombat combat, float dt, float time)
         {
             clock += dt;
+            var ball = combat.Orb;
+            Fighter caster = combat.Player.State == BugState.SuperCharging ? combat.Player : combat.Enemy.State == BugState.SuperCharging ? combat.Enemy : null;
+            orbView.gameObject.SetActive(ball != null || caster != null);
+            if (ball != null || caster != null)
+            {
+                // Visual values are bounded independently from exact, unbounded combat damage.
+                float level = ball == null ? 0 : (float)System.Numerics.BigInteger.Min(ball.Reflections, 12);
+                bool lethal = ball != null && ball.Damage >= new System.Numerics.BigInteger(System.Math.Ceiling(ball.Target.Health));
+                Color energy = lethal ? Color.Lerp(Coral, Color.white, .35f + .2f * Mathf.Sin(clock * 22)) : Color.Lerp(Teal, Gold, Mathf.Clamp01(level / 3));
+                orbHaloMaterial.SetColor("_BaseColor", lethal ? Coral : Color.Lerp(Teal, Gold, Mathf.Clamp01(level / 3)));
+                orbMaterial.SetColor("_BaseColor", energy);
+                orbMaterial.SetColor("_EmissionColor", energy * (1.4f + level * .7f));
+                orbView.position = ball != null ? new Vector3(ball.Position.x, ball.Position.y, 0) : new Vector3(caster.X, caster.Y + 2.1f, 0);
+                float size = ball != null ? 1 + .06f * level : .25f + caster.SuperPower * .75f;
+                orbCore.localScale = Vector3.one * .65f * size * (1 + .06f * Mathf.Sin(clock * (8 + level * 2)));
+                for (int i = 0; i < orbRings.Count; i++)
+                {
+                    var ring = orbRings[i]; ring.gameObject.SetActive(i <= level || ball == null);
+                    ring.localRotation = Quaternion.Euler(clock * (70 + level * 16) + i * 45, i * 65, clock * 90);
+                    ring.localScale = Vector3.one * size;
+                }
+                for (int i = 0; i < orbTrail.Count; i++)
+                {
+                    var trail = orbTrail[i]; trail.gameObject.SetActive(ball != null);
+                    if (ball == null) continue;
+                    float direction = Mathf.Sign(ball.Target.X - ball.Position.x);
+                    trail.localPosition = new Vector3(-direction * (.4f + i * (.13f + level * .018f)), Mathf.Sin(clock * 20 - i) * .06f, 0);
+                    trail.localScale = Vector3.one * (.25f + level * .025f) * (1 - i / 9f);
+                }
+            }
             UpdateBug(player, combat.Player, dt); UpdateBug(enemy, combat.Enemy, dt);
             for (int i = 0; i < motes.Count; i++)
             {
@@ -376,12 +419,13 @@ namespace BugArena
             {
                 var f = combat.Player;
                 float end = Mathf.Clamp(f.X + f.Facing * CombatRules.Distance(f.Charge), -ringEdge, ringEdge);
-                float zoneEnd = end + f.Facing * CombatRules.HitRadius;
-                float zoneStart = zoneEnd - f.Facing * CombatRules.EndWindow;
+                float contactRadius = combat.Orb != null && combat.Orb.Target == f ? EnergyOrb.ContactRadius : CombatRules.HitRadius;
+                float zoneEnd = end + f.Facing * contactRadius;
+                float zoneStart = zoneEnd - f.Facing * f.EndWindow;
                 previewLine.localPosition = new Vector3((f.X + end) / 2, .07f, -.9f);
                 previewLine.localScale = new Vector3(Mathf.Abs(end - f.X), .025f, .055f);
                 previewZone.localPosition = new Vector3((zoneStart + zoneEnd) / 2, .09f, -.9f);
-                previewZone.localScale = new Vector3(CombatRules.EndWindow, .045f, .27f);
+                previewZone.localScale = new Vector3(f.EndWindow, .045f, .27f);
                 previewTip.localPosition = new Vector3(end, .10f, -.9f);
                 bool inZone = combat.Enemy.Grounded && combat.Enemy.X >= Mathf.Min(zoneStart, zoneEnd) && combat.Enemy.X <= Mathf.Max(zoneStart, zoneEnd);
                 previewMaterial.SetColor("_BaseColor", inZone ? Color.Lerp(Gold, Color.white, .35f + Mathf.Sin(time * 12) * .2f) : Gold);

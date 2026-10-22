@@ -57,8 +57,10 @@ public static class CampaignChecks
             for (int stage = 0; stage < ArenaCampaign.Stages.Length; stage++)
             {
                 check(game.StageIndex == stage, "Next-stage progression");
+                check(game.Combat.Player.DashDamageMultiplier == 1 + stage * .25f, "Guaranteed horn growth avoids upgrade RNG damage traps");
                 game.Combat.Enemy.Health = 0; game.Continue();
-                check(!game.RoundFinished && game.Countdown == 2 && game.Combat.Player.Health == 100, "Round starts fresh");
+                if (stage < ArenaCampaign.Stages.Length - 1) { check(game.ChoosingUpgrade, "Victory offers evolution"); game.ChooseUpgrade(0); check(game.Upgrades.Count == stage + 1, "Evolution persists through run"); }
+                check(!game.RoundFinished && game.Countdown == 2 && game.Combat.Player.Health == game.Combat.Player.MaxHealth, "Round starts fresh");
             }
             check(game.StageIndex == 0, "Champion can replay cup");
             game.Combat.Player.Health = 0; game.Continue();
@@ -73,8 +75,11 @@ public static class CampaignChecks
             typeof(ArenaGame).GetMethod("Update", flags).Invoke(game, null);
             check(game.TimedOut && game.RoundFinished && !game.Won, "Timeout resolves ties as defeat");
             game.Continue(); check(!game.TimedOut && game.RoundTime == 0, "Retry clears timer");
-            game.SelectStage(2); game.Combat.Player.Health = 60; game.Combat.Enemy.Health = 70;
+            game.SelectStage(3); game.Combat.Player.Health = 60; game.Combat.Enemy.Health = 70;
             check(game.Won, "Timeout compares health ratios for unequal maximum health");
+            game.SelectStage(4); game.Combat.Player.Health = 100; game.Combat.Enemy.Health = 1;
+            check(!game.Won && game.TimeRemaining == 150, "Boss has longer time limit and requires an actual defeat");
+            game.Combat.Enemy.Health = 0; check(game.Won, "Boss defeat wins run");
         }
         finally
         {

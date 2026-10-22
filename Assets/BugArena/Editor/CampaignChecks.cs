@@ -65,19 +65,23 @@ public static class CampaignChecks
             check(game.StageIndex == 0, "Champion can replay cup");
             game.Combat.Player.Health = 0; game.Continue();
             check(game.StageIndex == 0, "Defeat retries same stage");
+            game.Combat.Player.Health = 0; game.Continue();
+            check(game.Assistance == 1 && game.DefeatStreak == 2, "Two failed runs activate visible assistance");
+            game.Combat.Player.Health = 0; game.Continue();
+            check(game.Assistance == 2, "Assistance caps at two levels");
             game.Restart(); check(!game.Paused, "Retry starts countdown");
             game.TogglePause(); check(game.Paused, "Pause");
             game.TogglePause(); check(!game.Paused, "Resume");
             var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
             typeof(ArenaGame).GetField("<Countdown>k__BackingField", flags).SetValue(game, 0f);
             typeof(ArenaGame).GetField("<RoundTime>k__BackingField", flags).SetValue(game, 75f);
-            game.Combat.Player.Health = game.Combat.Enemy.Health = 50;
+            game.Combat.Player.Health = game.Combat.Player.MaxHealth * .5f; game.Combat.Enemy.Health = game.Combat.Enemy.MaxHealth * .5f;
             typeof(ArenaGame).GetMethod("Update", flags).Invoke(game, null);
             check(game.TimedOut && game.RoundFinished && !game.Won, "Timeout resolves ties as defeat");
             game.Continue(); check(!game.TimedOut && game.RoundTime == 0, "Retry clears timer");
             game.SelectStage(3); game.Combat.Player.Health = 60; game.Combat.Enemy.Health = 70;
             check(game.Won, "Timeout compares health ratios for unequal maximum health");
-            game.SelectStage(4); game.Combat.Player.Health = 100; game.Combat.Enemy.Health = 1;
+            game.SelectStage(8); game.Combat.Player.Health = 100; game.Combat.Enemy.Health = 1;
             check(!game.Won && game.TimeRemaining == 150, "Boss has longer time limit and requires an actual defeat");
             game.Combat.Enemy.Health = 0; check(game.Won, "Boss defeat wins run");
         }

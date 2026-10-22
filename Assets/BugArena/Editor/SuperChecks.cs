@@ -13,7 +13,7 @@ public static class SuperChecks
     static ArenaCombat Cast()
     {
         var c = new ArenaCombat { AiEnabled = false };
-        c.Configure(ArenaCampaign.Stages[0]);
+        c.Configure(new ArenaStage("TEST", "TARGET", "", 12, 80, 1, 1, 5, Color.red));
         for (int i = 0; i < 160; i++) c.Advance(1f / 120, new FightInput(0, false, true));
         c.Advance(1f / 120, new FightInput());
         Check(c.Orb != null && c.Orb.Damage == 24, "Full charge launches 24 damage orb");
@@ -77,11 +77,11 @@ public static class SuperChecks
             owned.Add(offers[0].Kind);
         }
         c.Reset(); ArenaUpgrade.Apply(c.Player, ArenaUpgrade.All.Select(u => u.Kind));
-        Check(c.Player.MaxHealth == 135 && c.Player.Ward && c.Player.MoveSpeed > 3.8f && c.Player.SuperChargeTime < 1.15f && c.Player.ReflectionHeal == 12, "Upgrade effects applied");
-        c.Configure(ArenaCampaign.Stages[4]); c.AiEnabled = true; c.Enemy.Health = 499;
+        Check(c.Player.MaxHealth == 135 && c.Player.Ward && c.Player.MoveSpeed > 3.8f && c.Player.SuperChargeTime < 1.15f && c.Player.ReflectionHeal == 20, "Upgrade effects applied");
+        c.Configure(ArenaCampaign.Stages[8]); c.AiEnabled = true; c.Enemy.Health = 499;
         c.Advance(1f / 120, new FightInput());
         Check(c.Enemy.Enraged && c.Enemy.Health == 499 && c.Enemy.Invulnerability == 0 && c.Enemy.State == BugState.Recovering, "Boss enrage exposes a punish window without healing or invulnerability");
-        Check(c.Enemy.SuperChargeTime >= .9f && c.Enemy.SuperCooldownTime >= 7, "Boss keeps readable charge and cooldown");
+        Check(c.Enemy.SuperChargeTime >= .9f && c.Enemy.SuperCooldownTime >= 6, "Boss keeps readable charge and cooldown");
         c = Cast(); c.Enemy.Health = c.Enemy.MaxHealth = 1000;
         for (int i = 0; i < 6; i++) Contact(c, true, i % 2 != 0);
         Check(c.Orb != null && c.Orb.Damage == 1536 && c.Orb.Target == c.Enemy, "Six actual terminal contacts produce a 1536-damage return toward boss");

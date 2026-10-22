@@ -11,7 +11,17 @@ namespace BugArena
         public readonly List<UpgradeKind> Upgrades = new List<UpgradeKind>();
         public ArenaUpgrade[] Offers { get; private set; }
         public bool ChoosingUpgrade => Offers != null;
-        readonly System.Random upgradeRandom = new System.Random();
+        System.Random upgradeRandom;
+        public int RunSeed { get; private set; }
+        public int Assistance { get; private set; }
+        public int DefeatStreak { get; private set; }
+        ArenaStage[] runStages;
+        void GenerateRun()
+        {
+            RunSeed = System.Guid.NewGuid().GetHashCode(); Assistance = Mathf.Clamp(DefeatStreak - 1, 0, 2);
+            runStages = ArenaCampaign.Generate(RunSeed, Assistance);
+            upgradeRandom = new System.Random(RunSeed ^ 0x5A17);
+        }
         public bool Paused { get; private set; }
         public string Announcement { get; private set; } = "FIND YOUR DISTANCE";
         public string AnnouncementDetail { get; private set; } = "Release SPACE when the gold zone meets your rival";
@@ -27,13 +37,14 @@ namespace BugArena
         public ArenaTouchInput Touch { get; private set; }
         public int StageIndex { get; private set; }
         public int UnlockedStage { get; private set; }
-        public ArenaStage Stage => ArenaCampaign.Stages[StageIndex];
+        public ArenaStage Stage => runStages[StageIndex];
+        public ArenaStage NextStage => runStages[Mathf.Min(StageIndex + 1, ArenaCampaign.RunLength - 1)];
         public bool TimedOut { get; private set; }
         public bool RoundFinished => Combat.Finished || TimedOut;
         public bool Won => Stage.IsBoss
             ? Combat.Enemy.Health <= 0 && Combat.Player.Health > 0
             : Combat.Player.Health / Combat.Player.MaxHealth > Combat.Enemy.Health / Combat.Enemy.MaxHealth;
-        public bool CampaignComplete => RoundFinished && Won && StageIndex == ArenaCampaign.Stages.Length - 1;
+        public bool CampaignComplete => RoundFinished && Won && StageIndex == ArenaCampaign.RunLength - 1;
         public float TimeRemaining => Mathf.Max(0, Stage.TimeLimit - RoundTime);
         public float Countdown { get; private set; } = 2;
         float accumulator, hitStop, shake;
@@ -47,9 +58,10 @@ namespace BugArena
         public void Initialize()
         {
             if (Combat != null) return;
+            GenerateRun();
             Combat = new ArenaCombat();
             Combat.Configure(Stage);
-            UnlockedStage = Mathf.Clamp(PlayerPrefs.GetInt("BugArena.UnlockedStage", 0), 0, ArenaCampaign.Stages.Length - 1);
+            UnlockedStage = Mathf.Clamp(PlayerPrefs.GetInt("BugArena.UnlockedStage", 0), 0, ArenaCampaign.RunLength - 1);
             Touch = gameObject.AddComponent<ArenaTouchInput>();
             if (Application.isMobilePlatform)
             {
@@ -94,8 +106,8 @@ namespace BugArena
                 { if (RoundFinished) Continue(); else TogglePause(); }
                 else if (!RoundFinished && ArenaTouchInput.PauseAction.Contains(point)) TogglePause();
                 else if (Paused && RoundTime == 0)
-                    for (int i = 0; i < ArenaCampaign.Stages.Length; i++)
-                        if (new Rect(245 + i * 190, 625, 180, 43).Contains(point)) SelectStage(i);
+                    for (int i = 0; i < ArenaCampaign.RunLength; i++)
+                        if (new Rect(245 + (i % 5) * 190, 625 + (i / 5) * 50, 180, 43).Contains(point)) SelectStage(i);
             }
             var keyboard = Keyboard.current;
             if (keyboard != null)
@@ -145,7 +157,7 @@ namespace BugArena
             RecordResult();
             if (Combat.Enemy.Enraged && !bossAnnounced)
             {
-                bossAnnounced = true; Announcement = "ONYX ENRAGED";
+                bossAnnounced = true; Announcement = Stage.Rival + " ENRAGED";
                 AnnouncementDetail = "FASTER SUPER / STILL VULNERABLE DURING RECOVERY"; AnnouncementLife = 2;
                 Visuals.Burst(new Vector3(Combat.Enemy.X, 1, 0), ArenaVisuals.Coral, 24);
             }
@@ -195,10 +207,11 @@ namespace BugArena
             if (Won)
             {
                 PlayerWins++;
-                UnlockedStage = Mathf.Max(UnlockedStage, Mathf.Min(StageIndex + 1, ArenaCampaign.Stages.Length - 1));
+                if (CampaignComplete) DefeatStreak = 0;
+                UnlockedStage = Mathf.Max(UnlockedStage, Mathf.Min(StageIndex + 1, ArenaCampaign.RunLength - 1));
                 PlayerPrefs.SetInt("BugArena.UnlockedStage", UnlockedStage); PlayerPrefs.Save();
             }
-            else EnemyWins++;
+            else { EnemyWins++; DefeatStreak = Mathf.Min(3, DefeatStreak + 1); }
         }
         public void Continue()
         {
@@ -213,10 +226,10 @@ namespace BugArena
             if (!ChoosingUpgrade || index < 0 || index >= Offers.Length) return;
             Upgrades.Add(Offers[index].Kind); Offers = null; StageIndex++; Restart();
         }
-        public void RestartRun() { Offers = null; Upgrades.Clear(); StageIndex = 0; Restart(); }
+        public void RestartRun() { Offers = null; Upgrades.Clear(); StageIndex = 0; GenerateRun(); Restart(); }
         public void SelectStage(int index)
         {
-            if (index < 0 || index > UnlockedStage || index >= ArenaCampaign.Stages.Length) return;
+            if (index < 0 || index > UnlockedStage || index >= ArenaCampaign.RunLength) return;
             Offers = null; Upgrades.Clear(); StageIndex = index; Restart(); Paused = true;
         }
         void OnDestroy()

@@ -54,12 +54,12 @@ namespace BugArena
             var c = game.Combat; var p = c.Player;
             Rect(52, 47, 33, 5, ArenaVisuals.Gold);
             Text(98, 31, 400, 35, "BUG ARENA", 27, ink, bold: true);
-            Text(100, 66, 400, 20, game.Stage.Name + "  /  STAGE " + (game.StageIndex + 1) + " OF " + ArenaCampaign.Stages.Length, 11, muted);
-            Text(1010, 41, 378, 25, "MOSSWOOD RUN  /  FIVE RIVALS", 12, muted, TextAnchor.UpperRight);
+            Text(100, 66, 400, 20, game.Stage.Name + "  /  STAGE " + (game.StageIndex + 1) + " OF " + ArenaCampaign.RunLength, 11, muted);
+            Text(1010, 41, 378, 25, "RANDOM RUN / BOSS EVERY 3 STAGES", 12, muted, TextAnchor.UpperRight);
             Rect(52, 96, 1336, 1, new Color(.27f, .38f, .38f, .45f));
             Rect(52, 108, 1336, 130, new Color(.025f, .065f, .08f, .82f));
             Health(56, "JADE", "YOU  /  HORN POWER x" + p.DashDamageMultiplier.ToString("0.00"), p, ArenaVisuals.Teal, false);
-            Health(954, game.Stage.Rival, c.Enemy.Enraged ? "BOSS / ENRAGED - PUNISH RECOVERY" : "RIVAL  /  STAGE " + (game.StageIndex + 1), c.Enemy, game.Stage.Accent, true);
+            Health(954, game.Stage.Rival, c.Enemy.Enraged ? "BOSS / ENRAGED - PUNISH RECOVERY" : string.Join(" / ", System.Array.ConvertAll(game.Stage.Traits, k => System.Array.Find(ArenaUpgrade.All, u => u.Kind == k).Name)), c.Enemy, game.Stage.Accent, true);
             Text(580, 120, 280, 25, game.Stage.Name, 12, muted, TextAnchor.UpperCenter);
             Text(580, 151, 280, 41, game.PlayerWins + "  :  " + game.EnemyWins, 33, ArenaVisuals.Gold, TextAnchor.UpperCenter, true);
             Text(580, 200, 280, 25, Mathf.FloorToInt(game.TimeRemaining / 60).ToString("00") + ":" + Mathf.FloorToInt(game.TimeRemaining % 60).ToString("00"), 15, muted, TextAnchor.UpperCenter);
@@ -71,6 +71,7 @@ namespace BugArena
             }
             if (game.Upgrades.Count > 0)
                 Text(56, 605, 1328, 25, "BUILD / " + string.Join("  +  ", game.Upgrades.ConvertAll(k => System.Array.Find(ArenaUpgrade.All, u => u.Kind == k).Name)), 12, ArenaVisuals.Teal, TextAnchor.MiddleCenter);
+            Text(56, 575, 1328, 25, ArenaUpgrade.ComboText(game.Upgrades), 14, ArenaVisuals.Gold, TextAnchor.MiddleCenter, true);
             if (c.Orb != null && !game.RoundFinished)
             {
                 bool lethal = c.Orb.Damage >= new System.Numerics.BigInteger(System.Math.Ceiling(c.Orb.Target.Health));
@@ -113,7 +114,7 @@ namespace BugArena
                 Rect(890, 858, 200 * p.SuperPower, 7, ArenaVisuals.Teal);
                 TouchControl(ArenaTouchInput.Charge, "HOLD / RELEASE\nCHARGE + DASH", game.Touch.Held, ArenaVisuals.Gold);
                 Rect(1110, 858, 274 * (p.State == BugState.Charging ? p.Power : 0), 7, ArenaVisuals.Gold);
-                Text(360, 755, 500, 55, game.Stage.Hint, 17, ink, TextAnchor.MiddleCenter);
+                Text(360, 755, 500, 55, "Dash END returns orbs / Hold SUPER fully, then release", 16, ink, TextAnchor.MiddleCenter);
             }
             if (!game.RoundFinished && Button(660, 31, 120, 37, game.Paused ? "RESUME" : "PAUSE", ArenaVisuals.Gold)) game.TogglePause();
             if (!game.Paused && !game.RoundFinished && game.Countdown > 0)
@@ -129,23 +130,30 @@ namespace BugArena
                 Rect(440, 282, 560, 320, panel); Rect(440, 282, 560, 3, ArenaVisuals.Gold);
                 bool won = game.Won;
                 Text(465, 316, 510, 58, game.Paused ? (game.RoundTime == 0 ? "READY TO DUEL" : "PAUSED") : game.CampaignComplete ? "CUP CHAMPION!" : won ? "STAGE CLEARED" : game.TimedOut ? "TIME UP" : "TRY AGAIN", 42, game.Paused ? ink : won ? ArenaVisuals.Teal : ArenaVisuals.Coral, TextAnchor.UpperCenter, true);
-                Text(475, 391, 490, 65, game.Paused ? (game.RoundTime == 0 ? game.Stage.Hint : "Take a breath. Your next charge counts.") : c.Finishers + " launchers  /  " + c.Hits + " hits\n" + (game.CampaignComplete ? "Run complete. Try a different build." : won ? "Choose an evolution for the next ring." : (game.Stage.IsBoss ? "Start a new run. Defeat the boss before time runs out." : "Start a new run. Ties at time-up favor the rival.")), 17, muted, TextAnchor.UpperCenter);
+                Text(475, 381, 490, 100, game.Paused ? (game.RoundTime == 0 ? game.Stage.Hint : "Take a breath. Your next charge counts.") : c.Finishers + " launchers  /  " + c.Hits + " hits\n" + (game.CampaignComplete ? "Run complete. Try a different build." : won ? "Choose an evolution for the next ring." : (game.Stage.IsBoss ? "Start a new run. Defeat the boss before time runs out." : "Start a new run. Ties at time-up favor the rival.")), 15, muted, TextAnchor.UpperCenter);
                 if (Button(520, 493, 400, 57, game.Paused ? (game.RoundTime == 0 ? (game.Touch.Visible ? "ENTER THE RING" : "ENTER THE RING  /  ENTER") : (game.Touch.Visible ? "RESUME" : "RESUME  /  ESC")) : game.CampaignComplete ? "PLAY CUP AGAIN" : won ? (game.Touch.Visible ? "CHOOSE UPGRADE" : "CHOOSE UPGRADE  /  ENTER") : (game.Touch.Visible ? "NEW RUN" : "NEW RUN  /  ENTER"), ArenaVisuals.Gold))
                 { if (game.Paused) game.TogglePause(); else game.Continue(); }
             }
             if (game.Paused && game.RoundTime == 0)
-                for (int i = 0; i < ArenaCampaign.Stages.Length; i++)
-                    if (Button(245 + i * 190, 625, 180, 43, i <= game.UnlockedStage ? "STAGE " + (i + 1) : "LOCKED", i == game.StageIndex ? ArenaVisuals.Teal : muted) && i <= game.UnlockedStage) game.SelectStage(i);
+                for (int i = 0; i < ArenaCampaign.RunLength; i++)
+                    if (Button(245 + (i % 5) * 190, 625 + (i / 5) * 50, 180, 43, i <= game.UnlockedStage ? "STAGE " + (i + 1) : "LOCKED", i == game.StageIndex ? ArenaVisuals.Teal : muted) && i <= game.UnlockedStage) game.SelectStage(i);
             if (game.ChoosingUpgrade)
             {
                 Rect(0, 0, 1440, 900, new Color(.015f,.035f,.045f,.94f));
                 Text(180, 245, 1080, 60, "EVOLVE YOUR BEETLE", 42, ArenaVisuals.Gold, TextAnchor.MiddleCenter, true);
-                Text(180, 310, 1080, 30, "CHOOSE ONE / LASTS FOR THIS RUN / " + game.Upgrades.Count + " EVOLUTIONS OWNED", 15, ink, TextAnchor.MiddleCenter);
+                Text(180, 310, 1080, 30, "CHOOSE ONE / BUILD COMPLEMENTS ARE GUARANTEED WHEN AVAILABLE", 15, ink, TextAnchor.MiddleCenter);
                 for (int i = 0; i < game.Offers.Length; i++)
                 {
                     var rect = ArenaTouchInput.UpgradeCard(i); var offer = game.Offers[i];
                     if (Button(rect.x, rect.y, rect.width, rect.height, "[" + (i + 1) + "]  " + offer.Name + "\n\n" + offer.Detail, ArenaVisuals.Teal)) { game.ChooseUpgrade(i); break; }
                 }
+            }
+            if (game.Paused)
+                Text(180, 745, 1080, 45, "SEED " + game.RunSeed + (game.Assistance > 0 ? " / RECOVERY SUPPORT " + game.Assistance + " : weaker enemies, slower attacks" : " / STANDARD CHALLENGE"), 14, ink, TextAnchor.MiddleCenter);
+            if (game.ChoosingUpgrade)
+            {
+                Text(180, 615, 1080, 80, "NEXT: " + game.NextStage.Rival + " / " + game.NextStage.EnemyHealth + " HP\n" + game.NextStage.Hint, 16, ink, TextAnchor.MiddleCenter);
+                Text(180, 710, 1080, 60, ArenaUpgrade.ComboText(game.Upgrades), 16, ArenaVisuals.Gold, TextAnchor.MiddleCenter);
             }
             GUI.matrix = saved;
         }

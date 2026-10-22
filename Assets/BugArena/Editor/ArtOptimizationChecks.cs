@@ -27,7 +27,7 @@ public static class ArtOptimizationChecks
     }
     public static void ValidateAll()
     {
-        Run(); AnimationChecks.Run(); SuperChecks.Run(); CampaignChecks.Run(); TouchChecks.Run();
+        Run(); AnimationChecks.Run(); RandomRunChecks.Run();
         ArtValidation.Run(); AnimationPreview.Render(); RecordScene("after");
     }
     public static void RecordScene(string label)

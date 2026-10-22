@@ -76,7 +76,14 @@ namespace BugArena
         public void Reset()
         {
             ResetFighter(Player, -4, 1); ResetFighter(Enemy, 4, -1);
-            if (Stage != null) Enemy.Health = Enemy.MaxHealth = Stage.EnemyHealth;
+            if (Stage != null)
+            {
+                Enemy.Health = Enemy.MaxHealth = Stage.EnemyHealth;
+                Enemy.DashDamageMultiplier = Stage.DamageScale; Enemy.MoveSpeed = Stage.MoveSpeed;
+                Enemy.SuperChargeTime = Stage.ChargeTime; Enemy.SuperCooldownTime = Stage.Cooldown;
+                Enemy.SuperDamage = Stage.OrbDamage; ArenaUpgrade.Apply(Enemy, Stage.Traits, false);
+                Enemy.SuperChargeTime = Mathf.Max(.9f, Enemy.SuperChargeTime);
+            }
             Orb = null; Returns = 0;
             if (Stage != null) { Player.X = -6; Enemy.X = 6; }
             Finishers = Hits = 0; Elapsed = 0; aiWait = 1.2f; aiTargetCharge = .65f; seed = 17;
@@ -117,7 +124,7 @@ namespace BugArena
             if (!Enemy.CanAct) return new FightInput();
             if (Stage != null && Stage.IsBoss && !Enemy.Enraged && Enemy.Health <= Enemy.MaxHealth * .5f)
             {
-                Enemy.Enraged = true; Enemy.SuperChargeTime = .95f; Enemy.SuperCooldownTime = 7;
+                Enemy.Enraged = true; Enemy.SuperChargeTime = Mathf.Max(.9f, Enemy.SuperChargeTime * .85f); Enemy.SuperCooldownTime = Mathf.Max(6, Enemy.SuperCooldownTime * .8f);
                 Enemy.MoveSpeed = 4.2f; Enemy.Charge = Enemy.SuperCharge = 0;
                 // A readable transition and punish window, with no healing or invulnerability.
                 Enemy.State = BugState.Recovering; Enemy.Timer = .9f;

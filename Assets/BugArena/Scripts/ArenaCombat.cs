@@ -21,7 +21,7 @@ namespace BugArena
     [Serializable]
     public sealed class Fighter
     {
-        public float X, Y, VelocityX, VelocityY, Health = 100, Charge, Timer;
+        public float X, Y, VelocityX, VelocityY, Health = 100, MaxHealth = 100, Charge, Timer;
         public float DashStart, DashEnd, DashElapsed, DashDuration, Invulnerability;
         public int Facing = 1;
         public bool HasHit;
@@ -55,6 +55,9 @@ namespace BugArena
         public int Hits { get; private set; }
         public float Elapsed { get; private set; }
         public bool AiEnabled = true;
+        public ArenaStage Stage { get; private set; }
+        public float RingEdge => Stage != null ? Stage.Edge : CombatRules.RingEdge;
+        public void Configure(ArenaStage stage) { Stage = stage; Reset(); }
         float aiWait, aiTargetCharge;
         uint seed = 17;
 
@@ -63,12 +66,13 @@ namespace BugArena
         public void Reset()
         {
             ResetFighter(Player, -4, 1); ResetFighter(Enemy, 4, -1);
+            if (Stage != null) Enemy.Health = Enemy.MaxHealth = Stage.EnemyHealth;
             Finishers = Hits = 0; Elapsed = 0; aiWait = 1.2f; aiTargetCharge = .65f; seed = 17;
         }
         static void ResetFighter(Fighter f, float x, int facing)
         {
             f.X = x; f.Y = f.VelocityX = f.VelocityY = f.Charge = f.Timer = f.Invulnerability = 0;
-            f.Health = 100; f.Facing = facing; f.State = BugState.Ready; f.HasHit = false;
+            f.Health = f.MaxHealth = 100; f.Facing = facing; f.State = BugState.Ready; f.HasHit = false;
         }
         public void Step(float dt, FightInput input)
         {
@@ -85,8 +89,8 @@ namespace BugArena
                 {
                     float push = (CombatRules.HitRadius - Mathf.Abs(gap)) * .5f;
                     int direction = gap >= 0 ? 1 : -1;
-                    Player.X = Mathf.Clamp(Player.X - push * direction, -CombatRules.RingEdge, CombatRules.RingEdge);
-                    Enemy.X = Mathf.Clamp(Enemy.X + push * direction, -CombatRules.RingEdge, CombatRules.RingEdge);
+                    Player.X = Mathf.Clamp(Player.X - push * direction, -RingEdge, RingEdge);
+                    Enemy.X = Mathf.Clamp(Enemy.X + push * direction, -RingEdge, RingEdge);
                 }
             }
         }
@@ -99,23 +103,24 @@ namespace BugArena
             if (aiWait <= 0 && Player.Grounded && gap < 7.7f)
             {
                 // Aim near the opponent, with readable variation rather than perfect tracking.
-                float desired = Mathf.Clamp(gap - CombatRules.HitRadius + CombatRules.EndWindow * .5f + (Random01() - .5f) * .8f, 1.65f, 6.8f);
+                float desired = Mathf.Clamp(gap - CombatRules.HitRadius + CombatRules.EndWindow * .5f + (Random01() - .5f) * (Stage != null ? Stage.AimError : .8f), 1.65f, 6.8f);
                 aiTargetCharge = Mathf.Clamp((desired - 1.65f) / 5.15f * CombatRules.MaxCharge, .16f, 1.35f);
-                aiWait = .75f + Random01() * .9f;
+                aiWait = (Stage != null ? Stage.ThinkDelay : .75f) + Random01() * .6f;
                 return new FightInput(0, true);
             }
             float direction = Mathf.Sign(Player.X - Enemy.X);
-            float move = gap > 5.7f ? direction * .65f : gap < 3.2f ? -direction * .6f : 0;
+            float preferred = Stage != null ? Stage.PreferredGap : 4.5f;
+            float move = gap > preferred + .65f ? direction * .7f : gap < preferred - .65f ? -direction * .6f : 0;
             return new FightInput(move, false);
         }
-        static void TickFighter(Fighter f, Fighter opponent, FightInput input, float dt)
+        void TickFighter(Fighter f, Fighter opponent, FightInput input, float dt)
         {
             f.Invulnerability = Mathf.Max(0, f.Invulnerability - dt);
             if (f.Health <= 0) { f.State = BugState.Defeated; return; }
             if (f.State == BugState.Airborne)
             {
                 f.VelocityY -= 18 * dt; f.Y += f.VelocityY * dt;
-                f.X = Mathf.Clamp(f.X + f.VelocityX * dt, -CombatRules.RingEdge, CombatRules.RingEdge);
+                f.X = Mathf.Clamp(f.X + f.VelocityX * dt, -RingEdge, RingEdge);
                 f.VelocityX = Mathf.MoveTowards(f.VelocityX, 0, dt * 2);
                 if (f.Y <= 0) { f.Y = 0; f.State = BugState.Recovering; f.Timer = .28f; }
                 return;
@@ -124,7 +129,7 @@ namespace BugArena
             if (f.State == BugState.Recovering)
             {
                 f.Timer -= dt;
-                f.X = Mathf.Clamp(f.X + f.VelocityX * dt, -CombatRules.RingEdge, CombatRules.RingEdge);
+                f.X = Mathf.Clamp(f.X + f.VelocityX * dt, -RingEdge, RingEdge);
                 f.VelocityX = Mathf.MoveTowards(f.VelocityX, 0, 20 * dt);
                 if (f.Timer <= 0) { f.State = BugState.Ready; f.Charge = 0; }
                 return;
@@ -138,11 +143,11 @@ namespace BugArena
             if (f.State == BugState.Charging)
             {
                 f.State = BugState.Dashing; f.DashStart = f.X;
-                f.DashEnd = CombatRules.Endpoint(f.X, f.Facing, f.Charge);
+                f.DashEnd = Mathf.Clamp(f.X + f.Facing * CombatRules.Distance(f.Charge), -RingEdge, RingEdge);
                 f.DashDuration = CombatRules.Duration(f.Charge); f.DashElapsed = 0; f.HasHit = false;
                 return;
             }
-            f.X = Mathf.Clamp(f.X + input.Move * 3.8f * dt, -CombatRules.RingEdge, CombatRules.RingEdge);
+            f.X = Mathf.Clamp(f.X + input.Move * 3.8f * dt, -RingEdge, RingEdge);
         }
         float stepDelta;
         void ResolveDash(Fighter attacker, Fighter target)

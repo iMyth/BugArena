@@ -20,6 +20,16 @@ namespace BugArena
         public float RoundTime { get; private set; }
         public Camera ArenaCamera { get; private set; }
         public ArenaVisuals Visuals { get; private set; }
+        public ArenaTouchInput Touch { get; private set; }
+        public int StageIndex { get; private set; }
+        public int UnlockedStage { get; private set; }
+        public ArenaStage Stage => ArenaCampaign.Stages[StageIndex];
+        public bool TimedOut { get; private set; }
+        public bool RoundFinished => Combat.Finished || TimedOut;
+        public bool Won => Combat.Player.Health / Combat.Player.MaxHealth > Combat.Enemy.Health / Combat.Enemy.MaxHealth;
+        public bool CampaignComplete => RoundFinished && Won && StageIndex == ArenaCampaign.Stages.Length - 1;
+        public float TimeRemaining => Mathf.Max(0, 75 - RoundTime);
+        public float Countdown { get; private set; } = 2;
         float accumulator, hitStop, shake;
         bool counted;
         Vector3 cameraHome;
@@ -27,14 +37,26 @@ namespace BugArena
         AudioClip hitClip, launchClip, clashClip;
         readonly List<AudioClip> clips = new List<AudioClip>();
 
-        void Awake()
+        void Awake() { Initialize(); }
+        public void Initialize()
         {
+            if (Combat != null) return;
             Combat = new ArenaCombat();
+            Combat.Configure(Stage);
+            UnlockedStage = Mathf.Clamp(PlayerPrefs.GetInt("BugArena.UnlockedStage", 0), 0, ArenaCampaign.Stages.Length - 1);
+            Touch = gameObject.AddComponent<ArenaTouchInput>();
+            if (Application.isMobilePlatform)
+            {
+                Screen.orientation = ScreenOrientation.AutoRotation;
+                Screen.autorotateToPortrait = Screen.autorotateToPortraitUpsideDown = false;
+                Screen.autorotateToLandscapeLeft = Screen.autorotateToLandscapeRight = true;
+            }
             Paused = true;
             Visuals = new ArenaVisuals(transform);
             ArenaCamera = Visuals.BuildArena();
             cameraHome = ArenaCamera.transform.position;
             Visuals.BuildFighters();
+            Visuals.SetStage(Stage);
             gameObject.AddComponent<ArenaHUD>();
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.playOnAwake = false;
@@ -56,45 +78,60 @@ namespace BugArena
         }
         void Update()
         {
+            Touch.Sample();
+            if (Touch.PressedPoint.HasValue)
+            {
+                var point = Touch.PressedPoint.Value;
+                if ((Paused || RoundFinished) && ArenaTouchInput.PrimaryAction.Contains(point))
+                { if (RoundFinished) Continue(); else TogglePause(); }
+                else if (!RoundFinished && ArenaTouchInput.PauseAction.Contains(point)) TogglePause();
+                else if (Paused && RoundTime == 0)
+                    for (int i = 0; i < ArenaCampaign.Stages.Length; i++)
+                        if (new Rect(440 + i * 190, 625, 180, 43).Contains(point)) SelectStage(i);
+            }
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
                 if (keyboard.rKey.wasPressedThisFrame) Restart();
+                if (RoundFinished && keyboard.enterKey.wasPressedThisFrame) Continue();
                 if (keyboard.escapeKey.wasPressedThisFrame || (Paused && keyboard.enterKey.wasPressedThisFrame)) TogglePause();
             }
             float realDt = Mathf.Min(Time.unscaledDeltaTime, .08f);
-            AnnouncementLife = Mathf.Max(0, AnnouncementLife - (Paused ? 0 : realDt));
+            AnnouncementLife = Mathf.Max(0, AnnouncementLife - (Paused || RoundFinished || Countdown > 0 ? 0 : realDt));
             ImpactFlash = Mathf.Max(0, ImpactFlash - realDt * 3);
             if (!Paused)
             {
-                if (Combat.Finished)
+                if (RoundFinished)
                 {
-                    if (!counted) { counted = true; if (Combat.Enemy.Health <= 0) PlayerWins++; else EnemyWins++; }
+                    RecordResult();
                 }
+                else if (Countdown > 0) Countdown = Mathf.Max(0, Countdown - realDt);
                 else
                 {
                     RoundTime += realDt;
-                    if (hitStop > 0) hitStop -= realDt;
+                    if (RoundTime >= 75) { TimedOut = true; accumulator = 0; }
+                    else if (hitStop > 0) hitStop -= realDt;
                     else
                     {
-                        float move = 0; bool held = false;
+                        float move = Touch.Move; bool held = Touch.Held;
                         if (keyboard != null && Application.isFocused)
                         {
-                            move = (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0);
-                            held = keyboard.spaceKey.isPressed;
+                            move += (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0);
+                            held |= keyboard.spaceKey.isPressed;
                         }
                         accumulator = Mathf.Min(accumulator + realDt, .1f);
                         while (accumulator >= 1f / 120)
                         {
-                            Combat.Advance(1f / 120, new FightInput(move, held)); accumulator -= 1f / 120;
+                            Combat.Advance(1f / 120, new FightInput(Mathf.Clamp(move, -1, 1), held)); accumulator -= 1f / 120;
                             if (hitStop > 0 || Combat.Finished) { accumulator = 0; break; }
                         }
                     }
                 }
             }
+            RecordResult();
             shake = Mathf.MoveTowards(shake, 0, realDt * 2);
             ArenaCamera.transform.position = cameraHome + new Vector3(Mathf.Sin(Time.unscaledTime * 81), Mathf.Cos(Time.unscaledTime * 67), 0) * shake * .14f;
-            Visuals.Update(Combat, Paused ? 0 : realDt, Time.unscaledTime);
+            Visuals.Update(Combat, Paused || RoundFinished || Countdown > 0 ? 0 : realDt, Time.unscaledTime);
         }
         void OnHit(Impact impact)
         {
@@ -108,18 +145,46 @@ namespace BugArena
             Visuals.Burst(new Vector3(impact.Target.X, impact.Target.Y + .8f, -.2f), impact.Finisher ? ArenaVisuals.Gold : Color.white, impact.Finisher ? 22 : 10);
             audioSource.PlayOneShot(impact.Clash ? clashClip : impact.Finisher ? launchClip : hitClip, .7f);
         }
-        void OnApplicationFocus(bool focused) { if (!focused && Combat != null && !Combat.Finished) Paused = true; }
-        public void TogglePause() { if (!Combat.Finished) { Paused = !Paused; accumulator = 0; } }
+        void OnApplicationFocus(bool focused) { if (!focused && Combat != null && !RoundFinished) Paused = true; }
+        void OnApplicationPause(bool paused) { if (paused && Combat != null && !RoundFinished) { Paused = true; Touch?.Clear(); } }
+        public void TogglePause() { if (!RoundFinished) { Paused = !Paused; accumulator = 0; } }
         public void Restart()
         {
-            Combat.Reset(); Paused = false; accumulator = hitStop = 0; counted = false; RoundTime = 0;
-            Announcement = "FIND YOUR DISTANCE"; AnnouncementDetail = "Release SPACE when the gold zone meets your rival"; AnnouncementLife = 2.5f;
+            Combat.Configure(Stage); Visuals.SetStage(Stage);
+            Touch.Clear(); TimedOut = false; Countdown = 2;
+            Paused = false; accumulator = hitStop = 0; counted = false; RoundTime = 0;
+            Announcement = Stage.Name; AnnouncementDetail = Stage.Hint; AnnouncementLife = 2.5f;
+        }
+        void RecordResult()
+        {
+            if (counted || !RoundFinished) return;
+            counted = true;
+            if (Won)
+            {
+                PlayerWins++;
+                UnlockedStage = Mathf.Max(UnlockedStage, Mathf.Min(StageIndex + 1, ArenaCampaign.Stages.Length - 1));
+                PlayerPrefs.SetInt("BugArena.UnlockedStage", UnlockedStage); PlayerPrefs.Save();
+            }
+            else EnemyWins++;
+        }
+        public void Continue()
+        {
+            if (!RoundFinished) return;
+            RecordResult();
+            if (Won) StageIndex = (StageIndex + 1) % ArenaCampaign.Stages.Length;
+            Restart();
+        }
+        public void SelectStage(int index)
+        {
+            if (index < 0 || index > UnlockedStage || index >= ArenaCampaign.Stages.Length) return;
+            StageIndex = index; Restart(); Paused = true;
         }
         void OnDestroy()
         {
             if (Combat != null) Combat.Hit -= OnHit;
-            Visuals?.Dispose();
-            foreach (var clip in clips) if (clip != null) Destroy(clip);
+            Visuals?.Dispose(); Visuals = null;
+            foreach (var clip in clips) if (clip != null) { if (Application.isPlaying) Destroy(clip); else DestroyImmediate(clip); }
+            clips.Clear();
         }
     }
 }

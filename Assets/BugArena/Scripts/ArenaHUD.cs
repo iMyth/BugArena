@@ -27,47 +27,56 @@ namespace BugArena
             bool hover = new Rect(x, y, w, h).Contains(Event.current.mousePosition);
             Rect(x, y, w, h, hover ? color : color * .8f);
             Text(x, y, w, h, text, 18, new Color(.03f, .07f, .07f), TextAnchor.MiddleCenter, true);
-            return GUI.Button(new Rect(x, y, w, h), GUIContent.none, GUIStyle.none);
+            return GUI.Button(new Rect(x, y, w, h), GUIContent.none, GUIStyle.none) && !game.Touch.Visible;
+        }
+        void TouchControl(Rect rect, string label, bool held, Color color)
+        {
+            Rect(rect.x, rect.y, rect.width, rect.height, held ? color : panel);
+            Rect(rect.x, rect.y, rect.width, 3, color);
+            Text(rect.x, rect.y, rect.width, rect.height, label, 22, held ? panel : color, TextAnchor.MiddleCenter, true);
         }
         void Health(float x, string name, string tag, Fighter f, Color color, bool right)
         {
             Text(x, 116, 430, 30, name, 28, ink, right ? TextAnchor.UpperRight : TextAnchor.UpperLeft, true);
             Text(x, 151, 430, 24, tag, 12, color, right ? TextAnchor.UpperRight : TextAnchor.UpperLeft);
             Rect(x, 184, 430, 12, new Color(.12f, .20f, .22f));
-            float fill = 430 * f.Health / 100;
+            float fill = 430 * f.Health / f.MaxHealth;
             Rect(right ? x + 430 - fill : x, 184, fill, 12, color);
-            Text(x, 204, 430, 24, Mathf.CeilToInt(f.Health) + " / 100", 13, muted, right ? TextAnchor.UpperRight : TextAnchor.UpperLeft);
+            Text(x, 204, 430, 24, Mathf.CeilToInt(f.Health) + " / " + Mathf.CeilToInt(f.MaxHealth), 13, muted, right ? TextAnchor.UpperRight : TextAnchor.UpperLeft);
         }
         void OnGUI()
         {
             if (game == null || game.Combat == null) return;
             var saved = GUI.matrix;
-            float scale = Mathf.Min(Screen.width / 1440f, Screen.height / 900f);
-            var offset = new Vector3((Screen.width - 1440 * scale) / 2, (Screen.height - 900 * scale) / 2, 0);
-            GUI.matrix = Matrix4x4.TRS(offset, Quaternion.identity, Vector3.one * scale);
+            var viewport = ArenaTouchInput.Viewport;
+            float scale = viewport.width / 1440;
+            GUI.matrix = Matrix4x4.TRS(viewport.position, Quaternion.identity, Vector3.one * scale);
             var c = game.Combat; var p = c.Player;
             Rect(52, 47, 33, 5, ArenaVisuals.Gold);
             Text(98, 31, 400, 35, "BUG ARENA", 27, ink, bold: true);
-            Text(100, 66, 400, 20, "M O S S W O O D   /   D U E L   0 1", 11, muted);
-            Text(1010, 41, 378, 25, "SIDE-VIEW COMBAT PROTOTYPE", 12, muted, TextAnchor.UpperRight);
+            Text(100, 66, 400, 20, game.Stage.Name + "  /  STAGE " + (game.StageIndex + 1) + " OF 3", 11, muted);
+            Text(1010, 41, 378, 25, "MOSSWOOD CUP  /  THREE RIVALS", 12, muted, TextAnchor.UpperRight);
             Rect(52, 96, 1336, 1, new Color(.27f, .38f, .38f, .45f));
+            Rect(52, 108, 1336, 130, new Color(.025f, .065f, .08f, .82f));
             Health(56, "JADE", "YOU  /  RHINO BEETLE", p, ArenaVisuals.Teal, false);
-            Health(954, "EMBER", "RIVAL  /  TRAINING AI", c.Enemy, ArenaVisuals.Coral, true);
-            Text(580, 120, 280, 25, "MOSSWOOD RING", 12, muted, TextAnchor.UpperCenter);
+            Health(954, game.Stage.Rival, "RIVAL  /  STAGE " + (game.StageIndex + 1), c.Enemy, game.Stage.Accent, true);
+            Text(580, 120, 280, 25, game.Stage.Name, 12, muted, TextAnchor.UpperCenter);
             Text(580, 151, 280, 41, game.PlayerWins + "  :  " + game.EnemyWins, 33, ArenaVisuals.Gold, TextAnchor.UpperCenter, true);
-            Text(580, 200, 280, 25, Mathf.FloorToInt(game.RoundTime / 60).ToString("00") + ":" + Mathf.FloorToInt(game.RoundTime % 60).ToString("00"), 15, muted, TextAnchor.UpperCenter);
-            if (game.AnnouncementLife > 0 && !c.Finished && !game.Paused)
+            Text(580, 200, 280, 25, Mathf.FloorToInt(game.TimeRemaining / 60).ToString("00") + ":" + Mathf.FloorToInt(game.TimeRemaining % 60).ToString("00"), 15, muted, TextAnchor.UpperCenter);
+            if (game.AnnouncementLife > 0 && !game.RoundFinished && !game.Paused)
             {
                 Color color = game.Announcement.Contains("LAUNCH") ? ArenaVisuals.Gold : ink;
                 Text(250, 256, 940, 48, game.Announcement, 29, color, TextAnchor.UpperCenter, true);
-                Text(250, 302, 940, 30, game.AnnouncementDetail, 14, muted, TextAnchor.UpperCenter);
+                Text(250, 302, 940, 30, game.Touch.Visible ? game.AnnouncementDetail.Replace("SPACE", "CHARGE") : game.AnnouncementDetail, 14, muted, TextAnchor.UpperCenter);
             }
-            if (c.Enemy.State == BugState.Charging && !c.Finished)
+            if (c.Enemy.State == BugState.Charging && !game.RoundFinished)
             {
                 Text(980, 248, 408, 25, "RIVAL CHARGING", 14, ArenaVisuals.Coral, TextAnchor.UpperRight, true);
                 Rect(1150, 278, 234, 4, new Color(.2f, .14f, .14f));
                 Rect(1150, 278, c.Enemy.Power * 234, 4, ArenaVisuals.Coral);
             }
+            if (!game.Touch.Visible)
+            {
             Rect(52, 714, 496, 126, panel); Rect(52, 714, 3, 126, ArenaVisuals.Teal);
             string status = p.State == BugState.Charging ? p.Power >= 1 ? "MAX CHARGE / RELEASE" : "CHARGING / HOLD SPACE" : p.State == BugState.Recovering ? "RECOVERING" : p.State == BugState.Dashing ? "DASH!" : p.State == BugState.Airborne ? "AIRBORNE" : "HOLD SPACE TO CHARGE";
             Text(76, 731, 385, 28, status, 15, p.State == BugState.Charging ? ArenaVisuals.Gold : ink, bold: true);
@@ -82,21 +91,36 @@ namespace BugArena
             Text(978, 764, 386, 58, "Catch your rival in the gold end-zone.\nToo close? A short charge beats a long one.", 15, ink);
             Text(56, 860, 700, 25, "A / D   MOVE       HOLD + RELEASE SPACE   DASH", 13, muted);
             Text(920, 860, 464, 25, "R   REMATCH       ESC   PAUSE", 13, muted, TextAnchor.UpperRight);
+            }
+            else
+            {
+                TouchControl(ArenaTouchInput.Left, "<", game.Touch.LeftHeld, ArenaVisuals.Teal);
+                TouchControl(ArenaTouchInput.Right, ">", game.Touch.RightHeld, ArenaVisuals.Teal);
+                TouchControl(ArenaTouchInput.Charge, "HOLD / RELEASE\nCHARGE + DASH", game.Touch.Held, ArenaVisuals.Gold);
+                Rect(1110, 858, 274 * (p.State == BugState.Charging ? p.Power : 0), 7, ArenaVisuals.Gold);
+                Text(400, 755, 630, 55, game.Stage.Hint, 17, ink, TextAnchor.MiddleCenter);
+            }
+            if (!game.RoundFinished && Button(660, 31, 120, 37, game.Paused ? "RESUME" : "PAUSE", ArenaVisuals.Gold)) game.TogglePause();
+            if (!game.Paused && !game.RoundFinished && game.Countdown > 0)
+                Text(580, 330, 280, 90, Mathf.CeilToInt(game.Countdown).ToString(), 72, ArenaVisuals.Gold, TextAnchor.MiddleCenter, true);
             if (game.ImpactFlash > 0)
             {
                 Color color = game.LastWasPlayer ? ArenaVisuals.Gold : ArenaVisuals.Coral; color.a = game.ImpactFlash * .8f;
                 Rect(0, 0, 1440, 4, color); Rect(0, 896, 1440, 4, color);
             }
-            if (game.Paused || c.Finished)
+            if (game.Paused || game.RoundFinished)
             {
                 Rect(0, 0, 1440, 900, new Color(.015f, .035f, .045f, .78f));
                 Rect(440, 282, 560, 320, panel); Rect(440, 282, 560, 3, ArenaVisuals.Gold);
-                bool won = c.Enemy.Health <= 0;
-                Text(465, 316, 510, 58, game.Paused ? (game.RoundTime == 0 ? "READY TO DUEL" : "PAUSED") : won ? "JADE WINS" : "EMBER WINS", 42, game.Paused ? ink : won ? ArenaVisuals.Teal : ArenaVisuals.Coral, TextAnchor.UpperCenter, true);
-                Text(475, 391, 490, 65, game.Paused ? (game.RoundTime == 0 ? "A / D to move. Hold SPACE, release to dash.\nLand the gold end-zone to launch your rival." : "Take a breath. Your next charge counts.") : c.Finishers + " launchers  /  " + c.Hits + " hits\nAdjust your spacing. Make the last inch count.", 17, muted, TextAnchor.UpperCenter);
-                if (Button(520, 493, 400, 57, game.Paused ? (game.RoundTime == 0 ? "ENTER THE RING  /  ENTER" : "RESUME  /  ESC") : "REMATCH  /  R", ArenaVisuals.Gold))
-                { if (game.Paused) game.TogglePause(); else game.Restart(); }
+                bool won = game.Won;
+                Text(465, 316, 510, 58, game.Paused ? (game.RoundTime == 0 ? "READY TO DUEL" : "PAUSED") : game.CampaignComplete ? "CUP CHAMPION!" : won ? "STAGE CLEARED" : game.TimedOut ? "TIME UP" : "TRY AGAIN", 42, game.Paused ? ink : won ? ArenaVisuals.Teal : ArenaVisuals.Coral, TextAnchor.UpperCenter, true);
+                Text(475, 391, 490, 65, game.Paused ? (game.RoundTime == 0 ? game.Stage.Hint : "Take a breath. Your next charge counts.") : c.Finishers + " launchers  /  " + c.Hits + " hits\n" + (won ? "Rival defeated. The next ring awaits." : "Retry this stage. Ties at time-up favor the rival."), 17, muted, TextAnchor.UpperCenter);
+                if (Button(520, 493, 400, 57, game.Paused ? (game.RoundTime == 0 ? (game.Touch.Visible ? "ENTER THE RING" : "ENTER THE RING  /  ENTER") : (game.Touch.Visible ? "RESUME" : "RESUME  /  ESC")) : game.CampaignComplete ? "PLAY CUP AGAIN" : won ? (game.Touch.Visible ? "NEXT STAGE" : "NEXT STAGE  /  ENTER") : (game.Touch.Visible ? "RETRY" : "RETRY  /  ENTER"), ArenaVisuals.Gold))
+                { if (game.Paused) game.TogglePause(); else game.Continue(); }
             }
+            if (game.Paused && game.RoundTime == 0)
+                for (int i = 0; i < ArenaCampaign.Stages.Length; i++)
+                    if (Button(440 + i * 190, 625, 180, 43, i <= game.UnlockedStage ? "STAGE " + (i + 1) : "LOCKED", i == game.StageIndex ? ArenaVisuals.Teal : muted) && i <= game.UnlockedStage) game.SelectStage(i);
             GUI.matrix = saved;
         }
     }

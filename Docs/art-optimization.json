@@ -1,0 +1,124 @@
+{
+  "meshes": {
+    "JadeBeetleMesh": {
+      "triangles": 4480,
+      "vertices": 2308,
+      "material_slots": 1,
+      "data_name": "JadeBeetleMesh_Geometry",
+      "bones": 16,
+      "max_weights": 2
+    },
+    "EmberBeetleMesh": {
+      "triangles": 4480,
+      "vertices": 2308,
+      "material_slots": 1,
+      "data_name": "EmberBeetleMesh_Geometry",
+      "bones": 16,
+      "max_weights": 2
+    },
+    "MosswoodArena": {
+      "triangles": 2164,
+      "vertices": 1188,
+      "material_slots": 1,
+      "data_name": "MosswoodArena_Geometry"
+    }
+  },
+  "actions": {
+    "EmberBeetle_Idle": {
+      "curves": 53,
+      "keys": 662,
+      "constant": 42
+    },
+    "EmberBeetle_Walk": {
+      "curves": 55,
+      "keys": 1294,
+      "constant": 2
+    },
+    "JadeBeetle_Idle": {
+      "curves": 53,
+      "keys": 662,
+      "constant": 42
+    },
+    "JadeBeetle_Walk": {
+      "curves": 55,
+      "keys": 1294,
+      "constant": 2
+    }
+  },
+  "ground": {
+    "JadeBeetleMesh": {
+      "Walk": {
+        "minimum_sole_z": 0.03455781936645508,
+        "maximum_lowest_vertex_z": 0.03544902801513672,
+        "loop_mesh_delta": 0.0,
+        "samples": 97
+      },
+      "Idle": {
+        "minimum_sole_z": 0.034997764974832535,
+        "maximum_lowest_vertex_z": 0.034997764974832535,
+        "loop_mesh_delta": 0.0,
+        "samples": 145
+      }
+    },
+    "EmberBeetleMesh": {
+      "Walk": {
+        "minimum_sole_z": 0.03455781936645508,
+        "maximum_lowest_vertex_z": 0.03544902801513672,
+        "loop_mesh_delta": 0.0,
+        "samples": 97
+      },
+      "Idle": {
+        "minimum_sole_z": 0.034997764974832535,
+        "maximum_lowest_vertex_z": 0.034997764974832535,
+        "loop_mesh_delta": 0.0,
+        "samples": 145
+      }
+    }
+  },
+  "before": {
+    "arena_triangles": 11956,
+    "action_keys": 31360,
+    "imported_asset_submeshes": 11
+  },
+  "palette": "8x1 sRGB PNG; alpha=smoothness; point sampling; UV cell centers",
+  "after_action_keys": 3912,
+  "fbx_bytes": {
+    "JadeBeetle": 328748,
+    "EmberBeetle": 328812,
+    "MosswoodArena": 50604
+  },
+  "before_fbx_bytes": {
+    "JadeBeetle": 413036,
+    "EmberBeetle": 413052,
+    "MosswoodArena": 236092
+  },
+  "unity_scene_inventory": {
+    "before": {
+      "triangles": 90440,
+      "renderers": 196,
+      "submesh_submissions_before_culling": 204
+    },
+    "after": {
+      "triangles": 24784,
+      "renderers": 56,
+      "submesh_submissions_before_culling": 56
+    },
+    "note": "Inventory, not measured per-frame draw calls or frame time"
+  },
+  "unity_imported_sole_y": {
+    "minimum": 0.02911,
+    "maximum": 0.03556,
+    "sand_top": 0.0275,
+    "includes": "idle, walk, start, stop and backward blends"
+  },
+  "verification": {
+    "art_optimization_checks": 39,
+    "animation_checks": 34,
+    "campaign_checks": 30,
+    "synthetic_touch_checks": 9,
+    "combat_checks": 15,
+    "graphics_integration": "passed in isolated project, including export from canonical edited source and reimport",
+    "main_editor": "Animation and art checks passed after unlock; palette and touch preview verified in Play Mode",
+    "gait": "Forward/backward planted sole median drift <1cm per 50ms; distance-matched pose at 30/60/120fps; 40ms start blend"
+  }
+}

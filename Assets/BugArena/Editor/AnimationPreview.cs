@@ -25,25 +25,26 @@ public static class AnimationPreview
         {
             GraphicsSettings.useScriptableRenderPipelineBatching = false;
             var camera = visuals.BuildArena(); visuals.BuildFighters(); visuals.SetStage(ArenaCampaign.Stages[0]);
-            camera.orthographicSize = 1.75f; camera.targetTexture = target;
+            camera.orthographicSize = 2.7f; camera.targetTexture = target;
             var combat = new ArenaCombat { AiEnabled = false }; combat.Enemy.X = 8;
             var knee = root.GetComponentsInChildren<Transform>().First(t => t.name == "Knee_-1_0");
             visuals.Update(combat, 0, 0); var startRotation = knee.localRotation;
             float maxAngle = 0;
-            foreach (var clip in new[] { "Walk", "Idle" })
+            foreach (var clip in new[] { "Walk", "Backward", "Idle" })
             {
-                int frames = clip == "Walk" ? 24 : 48;
-                float dt = clip == "Walk" ? 1f / 30 : .05f;
+                int frames = clip == "Idle" ? 48 : 60;
+                float dt = clip == "Idle" ? .05f : 1f / 60;
                 // Let the transition settle before capturing the idle loop.
                 if (clip == "Idle")
                     for (int j = 0; j < 12; j++) { combat.Advance(1f / 60, new FightInput()); visuals.Update(combat, 1f / 60, j / 60f); }
                 for (int i = 0; i < frames; i++)
                 {
-                    combat.Advance(dt, new FightInput(clip == "Walk" ? 1 : 0, false));
+                    combat.Advance(dt, new FightInput(clip == "Walk" ? 1 : clip == "Backward" ? -1 : 0, false));
                     visuals.Update(combat, dt, i * dt);
                     if (clip == "Walk") maxAngle = Mathf.Max(maxAngle, Quaternion.Angle(startRotation, knee.localRotation));
-                    camera.transform.position = new Vector3(combat.Player.X + 1.5f, 2.1f, -5);
-                    camera.transform.LookAt(new Vector3(combat.Player.X, .7f, 0));
+                    // Fixed ground references expose sliding that a tracking camera can hide.
+                    camera.transform.position = new Vector3(-.6f, 2.1f, -5);
+                    camera.transform.LookAt(new Vector3(-2.1f, .7f, 0));
                     camera.Render(); if (i == 0) camera.Render();
                     RenderTexture.active = target;
                     image.ReadPixels(new Rect(0, 0, 640, 480), 0, 0); image.Apply();

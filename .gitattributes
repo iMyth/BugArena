@@ -1,0 +1,2 @@
+# Unity-generated YAML leaves a space after empty fields.
+*.meta whitespace=-blank-at-eol

@@ -78,8 +78,10 @@ Unity 6000.4.9f1 · Universal Render Pipeline · Input System
 
 六足采用两组三足交替步态。腿部直接挂在 Root 下，身体呼吸和起伏不带动支撑脚；逐帧根据变形后的脚底校正 IK，保留少量间隙避免采样误差穿地。待机包含身体呼吸和触角摆动。
 
-动画只删除等于默认姿态的恒定通道；非默认的恒定姿态保留首尾键，其他曲线按误差简化。FBX 使用 60 Hz 烘焙及轻量曲线简化，Unity 开启关键帧缩减和恒定缩放曲线清理。Walk 0.8 秒、Idle 2.4 秒，均循环、不使用根运动。`BeetleAnimationPlayer` 按实际位移采样并混合，后退反向播放，暂停与顿帧冻结。起步在 0.04 秒内切入走路；步态按实际位移推进，30/60/120 fps 下相同移动距离得到相同步态。冲刺和受击击退保留滑行表现，不播放普通走路。
+动画只删除等于默认姿态的恒定通道；非默认的恒定姿态保留首尾键，其他曲线按误差简化。FBX 使用 60 Hz 烘焙及轻量曲线简化，Unity 开启关键帧缩减和恒定缩放曲线清理。Walk 0.8 秒、Idle 2.4 秒，均循环、不使用根运动。`BeetleAnimationPlayer` 按实际位移采样并混合，后退反向播放，暂停与顿帧冻结。每周期覆盖 1.20 米，抬脚高度 0.25 米；身体起伏加强，过渡时补偿关节混合造成的脚底下陷。起步在 0.04 秒内切入走路；步态按实际位移推进，30/60/120 fps 下相同移动距离得到相同步态。冲刺和受击击退保留滑行表现，不播放普通走路。
 
-Unity 菜单 **Bug Arena → Run Art Optimization Checks / Run Animation Checks** 检查材质、接地、网格变形和状态切换；**Render Animation Preview** 从实际视觉代码输出预览帧到桌面 `BugArenaModels/Previews/UnityFrames`。
+![固定镜头下的前进与后退步态](Docs/images/walk.gif)
+
+Unity 菜单 **Bug Arena → Run Art Optimization Checks / Run Animation Checks** 检查材质、接地、网格变形和状态切换；**Render Animation Preview** 以固定镜头、60fps 从实际视觉代码输出前进和后退预览帧到桌面 `BugArenaModels/Previews/UnityFrames`。
 
 命令行可在关闭项目后用 `-executeMethod ArtOptimizationChecks.ValidateAll` 执行全部检查与渲染；已有编辑器打开时应使用菜单，或在临时工程副本中运行，避免并发打开同一工程。

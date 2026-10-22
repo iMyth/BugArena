@@ -30,9 +30,9 @@
       "constant": 42
     },
     "EmberBeetle_Walk": {
-      "curves": 55,
-      "keys": 1294,
-      "constant": 2
+      "curves": 56,
+      "keys": 1304,
+      "constant": 3
     },
     "JadeBeetle_Idle": {
       "curves": 53,
@@ -40,16 +40,16 @@
       "constant": 42
     },
     "JadeBeetle_Walk": {
-      "curves": 55,
-      "keys": 1294,
-      "constant": 2
+      "curves": 56,
+      "keys": 1304,
+      "constant": 3
     }
   },
   "ground": {
     "JadeBeetleMesh": {
       "Walk": {
-        "minimum_sole_z": 0.03455781936645508,
-        "maximum_lowest_vertex_z": 0.03544902801513672,
+        "minimum_sole_z": 0.029972583055496216,
+        "maximum_lowest_vertex_z": 0.03545215725898743,
         "loop_mesh_delta": 0.0,
         "samples": 97
       },
@@ -62,8 +62,8 @@
     },
     "EmberBeetleMesh": {
       "Walk": {
-        "minimum_sole_z": 0.03455781936645508,
-        "maximum_lowest_vertex_z": 0.03544902801513672,
+        "minimum_sole_z": 0.029972583055496216,
+        "maximum_lowest_vertex_z": 0.03545215725898743,
         "loop_mesh_delta": 0.0,
         "samples": 97
       },
@@ -81,10 +81,10 @@
     "imported_asset_submeshes": 11
   },
   "palette": "8x1 sRGB PNG; alpha=smoothness; point sampling; UV cell centers",
-  "after_action_keys": 3912,
+  "after_action_keys": 3932,
   "fbx_bytes": {
-    "JadeBeetle": 328748,
-    "EmberBeetle": 328812,
+    "JadeBeetle": 328940,
+    "EmberBeetle": 329004,
     "MosswoodArena": 50604
   },
   "before_fbx_bytes": {
@@ -105,20 +105,30 @@
     },
     "note": "Inventory, not measured per-frame draw calls or frame time"
   },
-  "unity_imported_sole_y": {
-    "minimum": 0.02911,
-    "maximum": 0.03556,
-    "sand_top": 0.0275,
-    "includes": "idle, walk, start, stop and backward blends"
-  },
   "verification": {
     "art_optimization_checks": 39,
-    "animation_checks": 34,
+    "animation_checks": 38,
     "campaign_checks": 30,
     "synthetic_touch_checks": 9,
     "combat_checks": 15,
-    "graphics_integration": "passed in isolated project, including export from canonical edited source and reimport",
+    "graphics_integration": "passed with fixed-ground-reference forward/backward previews at 60fps",
     "main_editor": "Animation and art checks passed after unlock; palette and touch preview verified in Play Mode",
-    "gait": "Forward/backward planted sole median drift <1cm per 50ms; distance-matched pose at 30/60/120fps; 40ms start blend"
+    "gait": "Forward/backward planted sole median drift <1cm per 50ms; distance-matched pose at 30/60/120fps; 40ms start blend",
+    "runtime_pose": "Play Mode probe after update: knee motion 111.23 degrees, no later animation overwrite"
+  },
+  "unity_imported_sole_y": {
+    "minimum": 0.02737,
+    "maximum": 0.05418,
+    "sand_top": 0.0275,
+    "includes": "idle, walk, start, stop and backward blends with transition support arc"
+  },
+  "gait": {
+    "cycle_distance_m": 1.2,
+    "walk_clip_seconds": 0.8,
+    "authored_speed_mps": 1.5,
+    "foot_lift_m": 0.25,
+    "body_bob_m": 0.045,
+    "start_blend_seconds": 0.04,
+    "transition_support_arc_m": 0.02
   }
 }

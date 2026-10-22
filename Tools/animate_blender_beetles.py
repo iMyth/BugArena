@@ -106,8 +106,8 @@ for rival,name in [(False,'JadeBeetle'),(True,'EmberBeetle')]:
     pose.location=(0,0,0);pose.rotation_quaternion=Quaternion();pose.scale=(1,1,1)
    body_pose=rig.pose.bones['Body']
    if clip=='Walk':
-    body_pose.location.z=math.sin(phase*2)*.014
-    body_pose.rotation_quaternion=Quaternion((1,0,0),math.sin(phase)*.018)
+    body_pose.location.z=math.sin(phase*2)*.045
+    body_pose.rotation_quaternion=Quaternion((1,0,0),math.sin(phase)*.035)
    else:
     # Subtle shell breathing keeps the planted silhouette calm.
     body_pose.scale=(1+math.sin(phase)*.012,1+math.sin(phase)*.018,1+math.sin(phase)*.025)
@@ -120,8 +120,8 @@ for rival,name in [(False,'JadeBeetle'),(True,'EmberBeetle')]:
      target=foot.copy();lift=0
      if clip=='Walk':
       if t<.5:
-       u=t*2;target.x+=-.24+.48*(u*u*(3-2*u));lift=math.sin(math.pi*u)*.19
-      else:target.x+=.24-.96*(t-.5)
+       u=t*2;target.x+=-.30+.60*(u*u*(3-2*u));lift=math.sin(math.pi*u)*.25
+      else:target.x+=.30-1.20*(t-.5)
      # Iterate against the deformed mesh sole, rather than just the ankle joint.
      # Legs are parented to Root, so breathing and shell bob do not drag planted feet.
      desired=.035+lift

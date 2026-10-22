@@ -67,7 +67,21 @@ public static class AnimationChecks
                 player.Reset(); check(player.WalkWeight == 0, "Stage reset clears walk state");
                 player.Tick(.04f, 3.8f, true, true);
                 check(player.WalkWeight == 1, "Full-speed movement reaches the walk pose within 40ms");
-                foreach (float speed in new[] { 1.2f, -1.2f })
+                var cyclePose = knee.localRotation;
+                player.Tick(BeetleAnimationPlayer.WalkCycleDistance / 3.8f, 3.8f, true, true);
+                check(Quaternion.Angle(cyclePose, knee.localRotation) < .05f,
+                    "One authored stride distance completes exactly one cycle at gameplay speed");
+                player.Reset(); skin.BakeMesh(bake, true);
+                var resting = bake.vertices.Select(v => skin.transform.TransformPoint(v)).ToArray();
+                int footBone = Array.FindIndex(skin.bones, b => b.name == "Knee_-1_0");
+                var weights = skin.sharedMesh.boneWeights;
+                var footIndices = Enumerable.Range(0, resting.Length).Where(i => resting[i].y < .15f &&
+                    weights[i].boneIndex0 == footBone && weights[i].weight0 > .99f).ToArray();
+                player.Tick(.2f, BeetleAnimationPlayer.WalkCycleDistance / walk.length, true, true);
+                skin.BakeMesh(bake, true);
+                check(footIndices.Length > 5 && footIndices.Min(i => skin.transform.TransformPoint(bake.vertices[i]).y) > .2f,
+                    "Swinging foot visibly clears the ground by at least 20cm");
+                foreach (float speed in new[] { BeetleAnimationPlayer.WalkCycleDistance / walk.length, -BeetleAnimationPlayer.WalkCycleDistance / walk.length })
                 {
                     player.Reset(); player.Tick(.5f, speed, true, true); skin.BakeMesh(bake, true);
                     var planted = bake.vertices.Select(v => skin.transform.TransformPoint(v)).ToArray();

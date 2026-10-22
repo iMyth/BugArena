@@ -107,14 +107,24 @@
   },
   "verification": {
     "art_optimization_checks": 39,
-    "animation_checks": 38,
+    "animation_checks": 46,
     "campaign_checks": 30,
     "synthetic_touch_checks": 9,
     "combat_checks": 15,
     "graphics_integration": "passed with fixed-ground-reference forward/backward previews at 60fps",
     "main_editor": "Animation and art checks passed after unlock; palette and touch preview verified in Play Mode",
     "gait": "Forward/backward planted sole median drift <1cm per 50ms; distance-matched pose at 30/60/120fps; 40ms start blend",
-    "runtime_pose": "Play Mode probe after update: knee motion 111.23 degrees, no later animation overwrite"
+    "runtime_pose": "Play Mode probe after update: knee motion 111.23 degrees, no later animation overwrite",
+    "live_game_input": {
+      "before_fix_walk_weight_median": 0.023559825,
+      "after_fix_walk_weight_median": 1.0,
+      "method": "Actual main-editor ArenaGame, native D/A key input; observed position, state, walk weight and knee rotation",
+      "fixed_combat_hz": 120,
+      "render_rate_regression_fps": [
+        240,
+        1000
+      ]
+    }
   },
   "unity_imported_sole_y": {
     "minimum": 0.02737,

@@ -17,6 +17,7 @@ namespace BugArena
         readonly Transform supportRoot;
         readonly Vector3 supportRestPosition;
         float idleTime, walkTime, walkWeight;
+        float timeSinceMovement = float.PositiveInfinity;
         public float WalkWeight => walkWeight;
 
         public BeetleAnimationPlayer(GameObject model, AnimationClip idleClip, AnimationClip walkClip)
@@ -42,6 +43,7 @@ namespace BugArena
         {
             if (supportRoot != null) supportRoot.localPosition = supportRestPosition;
             idleTime = walkTime = walkWeight = 0;
+            timeSinceMovement = float.PositiveInfinity;
             idle.SetTime(0); walk.SetTime(0);
             mixer.SetInputWeight(0, 1); mixer.SetInputWeight(1, 0);
             graph.Evaluate(0);
@@ -49,13 +51,18 @@ namespace BugArena
         public void Tick(float dt, float localSpeed, bool canWalk, bool animate)
         {
             if (dt <= 0 || !animate) return;
-            float target = canWalk && Mathf.Abs(localSpeed) > .1f ? 1 : 0;
+            bool moved = canWalk && Mathf.Abs(localSpeed) > .1f;
+            // Combat advances at 120Hz. Faster rendering contains zero-displacement
+            // frames between steps; these are not stop commands. Hold the walk
+            // state across two simulation ticks, while phase still uses real distance.
+            timeSinceMovement = moved ? 0 : timeSinceMovement + dt;
+            float target = canWalk && timeSinceMovement <= 1f / 60 ? 1 : 0;
             // Movement starts immediately in combat. A long fade makes the beetle
             // travel half a metre before its legs catch up at the normal 3.8m/s.
             walkWeight = Mathf.MoveTowards(walkWeight, target, dt / .04f);
             idleTime = Mathf.Repeat(idleTime + dt, idleLength);
             // Advance by travelled distance, so a longer readable stride keeps planted feet still.
-            if (Mathf.Abs(localSpeed) > .1f && canWalk)
+            if (moved)
                 walkTime = Mathf.Repeat(walkTime + dt * localSpeed * walkLength / WalkCycleDistance, walkLength);
             idle.SetTime(idleTime); walk.SetTime(walkTime);
             mixer.SetInputWeight(0, 1 - walkWeight); mixer.SetInputWeight(1, walkWeight);

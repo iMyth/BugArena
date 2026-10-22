@@ -102,6 +102,28 @@ public static class AnimationChecks
                     else check(Quaternion.Angle(reference, knee.localRotation) < .05f,
                         "Same travelled distance produces the same gait at 30/60/120fps");
                 }
+                foreach (int fps in new[] { 240, 1000 })
+                {
+                    player.Reset();
+                    var combat = new ArenaCombat { AiEnabled = false };
+                    float accumulator = 0, dt = 1f / fps;
+                    bool stayedWalking = true;
+                    for (int frame = 0; frame < fps / 2; frame++)
+                    {
+                        float before = combat.Player.X;
+                        accumulator += dt;
+                        while (accumulator >= 1f / 120)
+                        {
+                            combat.Advance(1f / 120, new FightInput(1, false));
+                            accumulator -= 1f / 120;
+                        }
+                        player.Tick(dt, (combat.Player.X - before) / dt, true, true);
+                        if (frame * dt > .08f && player.WalkWeight < .99f) stayedWalking = false;
+                    }
+                    check(stayedWalking, "120Hz combat must retain Walk between simulation steps at " + fps + "fps");
+                    player.Tick(.08f, 0, true, true);
+                    check(player.WalkWeight == 0, "A real stop still returns to idle promptly at " + fps + "fps");
+                }
             }
             finally { player?.Dispose(); UnityEngine.Object.DestroyImmediate(bake); UnityEngine.Object.DestroyImmediate(model); }
         }
